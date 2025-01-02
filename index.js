@@ -3,7 +3,7 @@ const cors = require('cors')
 const app = express()
 require('dotenv').config();
 const port = process.env.PORT || 5000;
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 // middlewares
 app.use(cors());
@@ -34,6 +34,13 @@ async function run() {
     const instantRBlogs = client.db('InstantRDatabase').collection('instant-r-all-blogs')
 
     // GET OPERATIONS
+    // get operation for first section card
+    app.get('/home', async(req, res) => {
+      const cursor = instantRBlogs.find().limit(1);
+      const result = await cursor.toArray();
+      res.send(result);
+    })
+
     // get operation for blogs
     app.get('/section/blogs', async (req, res)=> {
       const cursor = instantRBlogs.find();
@@ -43,10 +50,44 @@ async function run() {
 
     // get operation for home with limit
     app.get('/featured-blogs', async (req, res) => {
-      const cursor = instantRBlogs.find().limit(15);
+      const cursor = instantRBlogs.find().skip(1).limit(15);
       const result = await cursor.toArray();
       res.send(result);
     });
+
+    // get operation for details page
+    app.get('/section/blog-details/:id', async(req, res)=>{
+      const {id} = req.params;
+      console.log(id);
+      try{
+        const selectedBlogForDetails = await instantRBlogs.findOne({_id: new ObjectId(id)});
+
+        if(!selectedBlogForDetails){
+          return res.status(404).send('Blog details data not found')
+        }
+
+        // find related blog in the same category
+        const relatedBlogs = await instantRBlogs.find(
+          {
+            blog_category: {
+              $regex: `^${selectedBlogForDetails.blog_category}$`,
+              $options: "i"
+            },
+            _id: {$ne: new ObjectId(id)},
+          }
+        ).limit(6).toArray();
+
+        const result = {
+          selectedBlogForDetails,
+          relatedBlogs,
+        }
+
+        res.send(result);
+      }catch(error){
+        console.error('ERROR WHILE FETCHING BLOG:', error);
+        res.status(500).send('server error')
+      }
+    })
 
   } finally {
     // Ensures that the client will close when you finish/error
