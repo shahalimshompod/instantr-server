@@ -35,14 +35,14 @@ async function run() {
 
     // GET OPERATIONS
     // get operation for first section card
-    app.get('/home', async(req, res) => {
+    app.get('/home', async (req, res) => {
       const cursor = instantRBlogs.find().limit(1);
       const result = await cursor.toArray();
       res.send(result);
     })
 
     // get operation for blogs
-    app.get('/section/blogs', async (req, res)=> {
+    app.get('/section/blogs', async (req, res) => {
       const cursor = instantRBlogs.find();
       const result = await cursor.toArray();
       res.send(result);
@@ -50,19 +50,19 @@ async function run() {
 
     // get operation for home with limit
     app.get('/featured-blogs', async (req, res) => {
-      const cursor = instantRBlogs.find().skip(1).limit(15);
+      const cursor = instantRBlogs.find().skip(1).limit(11);
       const result = await cursor.toArray();
       res.send(result);
     });
 
     // get operation for details page
-    app.get('/section/blog-details/:id', async(req, res)=>{
-      const {id} = req.params;
+    app.get('/section/blog-details/:id', async (req, res) => {
+      const { id } = req.params;
       console.log(id);
-      try{
-        const selectedBlogForDetails = await instantRBlogs.findOne({_id: new ObjectId(id)});
+      try {
+        const selectedBlogForDetails = await instantRBlogs.findOne({ _id: new ObjectId(id) });
 
-        if(!selectedBlogForDetails){
+        if (!selectedBlogForDetails) {
           return res.status(404).send('Blog details data not found')
         }
 
@@ -73,7 +73,7 @@ async function run() {
               $regex: `^${selectedBlogForDetails.blog_category}$`,
               $options: "i"
             },
-            _id: {$ne: new ObjectId(id)},
+            _id: { $ne: new ObjectId(id) },
           }
         ).limit(6).toArray();
 
@@ -83,11 +83,92 @@ async function run() {
         }
 
         res.send(result);
-      }catch(error){
+      } catch (error) {
         console.error('ERROR WHILE FETCHING BLOG:', error);
         res.status(500).send('server error')
       }
     })
+
+    // get operation for tech route
+    app.get('/tech', async (req, res) => {
+      const query = {
+        blog_category: {
+          $regex: `^${`tech`}$`,
+          $options: "i"
+        }
+      }
+      const cursor = instantRBlogs.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    })
+
+    // get operation for explore route
+    app.get('/explore', async (req, res) => {
+      const query = {
+        blog_category: {
+          $regex: `^${`explore`}$`,
+          $options: "i"
+        }
+      }
+      const cursor = instantRBlogs.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    })
+
+    // get operation for category wise blogs routes
+    app.get('/section/:category', async (req, res) => {
+      const blog_category = req.params;
+      const { category } = blog_category;
+      console.log(category);
+      if (!category) {
+        return res.status(404).send('Category not found');
+      }
+
+      const query = {
+        blog_category: {
+          $regex: `^${category}$`,
+          $options: "i"
+        }
+      }
+      const cursor = instantRBlogs.find(query);
+      const result = await cursor.toArray();
+      res.send(result)
+    })
+
+    // get operation for category wise blogs for home route and showing blogs cards by 4.
+    app.get('/home-category-sections', async (req, res) => {
+      try {
+        const categories = await instantRBlogs.aggregate([
+          { $group: { _id: "$blog_category" } }
+        ]).toArray();
+
+        const blogsByCategory = {};
+
+        for (const categoryObj of categories) {
+          const category = categoryObj._id;
+          const blogs = await instantRBlogs
+            .find({ blog_category: category })
+            .limit(4)
+            .toArray();
+
+          blogsByCategory[category] = blogs;
+        }
+
+        res.status(200).send(blogsByCategory);
+      } catch (err) {
+        console.error('Error:', err);
+        res.status(500).send({ error: 'Internal Server Error' });
+      }
+    });
+
+
+    // get operation for latest blog
+    app.get('/latest-blogs', async (req, res) => {
+      const cursor = instantRBlogs.find().limit(4);
+      const result = await cursor.toArray();
+      res.send(result);
+    })
+
 
   } finally {
     // Ensures that the client will close when you finish/error
