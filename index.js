@@ -66,7 +66,7 @@ async function run() {
           return res.status(404).send('Blog details data not found')
         }
 
-        // find related blog in the same category
+        // find latest blog in the same category
         const relatedBlogs = await instantRBlogs.find(
           {
             blog_category: {
@@ -75,11 +75,23 @@ async function run() {
             },
             _id: { $ne: new ObjectId(id) },
           }
-        ).limit(6).toArray();
+        ).limit(8).toArray();
+
+        // find most popular blog for same category.
+        const popularBlogs = await instantRBlogs.find(
+          {
+            blog_category: {
+              $regex: `^${selectedBlogForDetails.blog_category}$`,
+              $options: "i"
+            },
+            _id: { $ne: new ObjectId(id) },
+          }
+        ).sort({ blog_viewCount: -1 }).limit(8).toArray();
 
         const result = {
           selectedBlogForDetails,
           relatedBlogs,
+          popularBlogs,
         }
 
         res.send(result);
@@ -168,6 +180,62 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     })
+
+    // get operation for newsletter section in home route.
+    app.get('/newsletters', async (req, res) => {
+      const query = {
+        blog_category: {
+          $regex: `^${`newsletters`}$`,
+          $options: "i"
+        }
+      }
+      const cursor = instantRBlogs.find(query).limit(6);
+      const result = await cursor.toArray();
+      res.send(result);
+    })
+
+    // get operation for popular blogs sections
+    app.get('/most-popular', async (req, res) => {
+      const cursor = instantRBlogs.find().sort({ blog_viewCount: -1 }).limit(3);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    // get operation for popular blogs for blog details route
+    // app.get('/blog-details/most-popular/:category', async (req, res) => {
+
+    //   const cursor = instantRBlogs.find().sort({ blog_viewCount: -1 }).limit(8);
+    //   const result = await cursor.toArray();
+    //   res.send(result);
+    // });
+
+
+
+    // POST OPERATION
+    // post operation for view counts
+    // PUT OPERATION
+    app.patch('/:id', async (req, res) => {
+      const blogId = req.params.id; // Get blog ID from route
+      console.log("Updating Blog ID:", blogId);
+
+      try {
+        const blog = await instantRBlogs.findOneAndUpdate(
+          { _id: new ObjectId(blogId) }, // Match the blog by ID
+          { $inc: { blog_viewCount: 1 } }, // Increment viewCount, add if it doesn't exist
+          { new: true, upsert: true } // Return updated document or create if not found
+        );
+
+        if (!blog) {
+          return res.status(404).json({ message: 'Blog not found' });
+        }
+
+        res.status(200).json({ message: 'View count updated', blog_viewCount: blog.blog_viewCount });
+      } catch (error) {
+        console.error("Error updating blog:", error);
+        res.status(500).json({ message: 'Something went wrong', error });
+      }
+    });
+
 
 
   } finally {
