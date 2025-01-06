@@ -41,6 +41,16 @@ async function run() {
       res.send(result);
     })
 
+    // get operation for well home first section card
+    app.get('/well/home', async (req, res) => {
+      const categories = ['Health', 'Life', 'Food', 'Mind'];
+
+      const cursor = instantRBlogs.find({ blog_category: { $in: categories } }).limit(1);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+
     // get operation for blogs
     app.get('/section/blogs', async (req, res) => {
       const cursor = instantRBlogs.find();
@@ -56,9 +66,9 @@ async function run() {
     });
 
     // get operation for details page
-    app.get('/section/blog-details/:id', async (req, res) => {
+    app.get('/blog-details/:id', async (req, res) => {
       const { id } = req.params;
-      console.log(id);
+
       try {
         const selectedBlogForDetails = await instantRBlogs.findOne({ _id: new ObjectId(id) });
 
@@ -101,37 +111,12 @@ async function run() {
       }
     })
 
-    // get operation for tech route
-    app.get('/tech', async (req, res) => {
-      const query = {
-        blog_category: {
-          $regex: `^${`tech`}$`,
-          $options: "i"
-        }
-      }
-      const cursor = instantRBlogs.find(query);
-      const result = await cursor.toArray();
-      res.send(result);
-    })
-
-    // get operation for explore route
-    app.get('/explore', async (req, res) => {
-      const query = {
-        blog_category: {
-          $regex: `^${`explore`}$`,
-          $options: "i"
-        }
-      }
-      const cursor = instantRBlogs.find(query);
-      const result = await cursor.toArray();
-      res.send(result);
-    })
 
     // get operation for category wise blogs routes
     app.get('/section/:category', async (req, res) => {
       const blog_category = req.params;
       const { category } = blog_category;
-      console.log(category);
+
       if (!category) {
         return res.status(404).send('Category not found');
       }
@@ -174,9 +159,50 @@ async function run() {
     });
 
 
+    // get operation for well home category section
+    app.get('/well/home-category-sections', async (req, res) => {
+      try {
+        // Define the categories you want
+        const desiredCategories = ["Life", "Mind", "Food", "Health"];
+
+        // Filter for desired categories
+        const categories = await instantRBlogs.aggregate([
+          { $match: { blog_category: { $in: desiredCategories } } }, // Filter by desired categories
+          { $group: { _id: "$blog_category" } }
+        ]).toArray();
+
+        const blogsByCategory = {};
+
+        for (const categoryObj of categories) {
+          const category = categoryObj._id;
+          const blogs = await instantRBlogs
+            .find({ blog_category: category })
+            .limit(4)
+            .toArray();
+
+          blogsByCategory[category] = blogs;
+        }
+
+        res.status(200).send(blogsByCategory);
+      } catch (err) {
+        console.error('Error:', err);
+        res.status(500).send({ error: 'Internal Server Error' });
+      }
+    });
+
+
+
     // get operation for latest blog
     app.get('/latest-blogs', async (req, res) => {
       const cursor = instantRBlogs.find().limit(4);
+      const result = await cursor.toArray();
+      res.send(result);
+    })
+
+
+    // get operation for latest blog in search 
+    app.get('/latest-blogs-in-search', async (req, res) => {
+      const cursor = instantRBlogs.find().limit(12);
       const result = await cursor.toArray();
       res.send(result);
     })
@@ -201,13 +227,35 @@ async function run() {
       res.send(result);
     });
 
-    // get operation for popular blogs for blog details route
-    // app.get('/blog-details/most-popular/:category', async (req, res) => {
+    // get operation for search route
+    // Search Route
+    app.get('/search', async (req, res) => {
+      const query = req.query.query;
 
-    //   const cursor = instantRBlogs.find().sort({ blog_viewCount: -1 }).limit(8);
-    //   const result = await cursor.toArray();
-    //   res.send(result);
-    // });
+
+      if (!query) {
+        return res.status(400).send('Query parameter is required');
+      }
+
+      try {
+        const results = await instantRBlogs.find({
+          $or: [
+            { blog_title: { $regex: query, $options: 'i' } },
+            { blog_category: { $regex: query, $options: 'i' } },
+            { blog_subheading: { $regex: query, $options: 'i' } }
+          ]
+        }).toArray();
+
+
+        // Send the results in the response
+        res.json(results);
+      } catch (error) {
+        console.error('Error fetching search results:', error);
+        res.status(500).send('Error fetching search results');
+      }
+    });
+
+
 
 
 
@@ -216,7 +264,7 @@ async function run() {
     // PUT OPERATION
     app.patch('/:id', async (req, res) => {
       const blogId = req.params.id; // Get blog ID from route
-      console.log("Updating Blog ID:", blogId);
+      
 
       try {
         const blog = await instantRBlogs.findOneAndUpdate(
