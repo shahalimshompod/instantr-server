@@ -9,9 +9,15 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 app.use(cors());
 app.use(express.json());
 
-// 
+//instant-r-database-uri-username
+//VQv40RsyvkLifAqa
 
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ezm1s.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ezm1s.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.mfxvb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+
+// const uri = "mongodb+srv://instant-r-database-uri-username:<db_password>@cluster0.mfxvb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -31,7 +37,8 @@ async function run() {
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
 
     // database collection
-    const instantRBlogs = client.db('InstantRDatabase').collection('instant-r-all-blogs')
+    const instantRBlogs = client.db('instantr07').collection('instant-r-all-blogs')
+    const instantRVideos = client.db('instantr07').collection('instant-r-videos')
 
     // GET OPERATIONS
     // get operation for first section card
@@ -52,11 +59,17 @@ async function run() {
 
 
     // get operation for blogs
+    // Get operation for blogs with pagination
     app.get('/section/blogs', async (req, res) => {
-      const cursor = instantRBlogs.find();
+      const page = parseInt(req.query.page) || 0;
+      const size = parseInt(req.query.size) || 45;
+
+      const totalCount = await instantRBlogs.countDocuments(); // Total number of blogs
+      const cursor = instantRBlogs.find().skip(page * size).limit(size);
       const result = await cursor.toArray();
-      res.send(result);
-    })
+      res.send({ blogData: result, totalCount });
+    });
+
 
     // get operation for home with limit
     app.get('/featured-blogs', async (req, res) => {
@@ -113,9 +126,11 @@ async function run() {
 
 
     // get operation for category wise blogs routes
+    // Get operation for category-wise blogs routes with pagination
     app.get('/section/:category', async (req, res) => {
-      const blog_category = req.params;
-      const { category } = blog_category;
+      const { category } = req.params;
+      const page = parseInt(req.query.page) || 0; // Default to page 0
+      const size = parseInt(req.query.size) || 45; // Default to 50 items per page
 
       if (!category) {
         return res.status(404).send('Category not found');
@@ -126,11 +141,16 @@ async function run() {
           $regex: `^${category}$`,
           $options: "i"
         }
-      }
-      const cursor = instantRBlogs.find(query);
+      };
+
+      const totalCount = await instantRBlogs.countDocuments(query); // Count total matching documents
+      const cursor = instantRBlogs.find(query).skip(page * size).limit(size);
       const result = await cursor.toArray();
-      res.send(result)
-    })
+
+      res.send({ blogData: result, totalCount });
+    });
+
+
 
     // get operation for category wise blogs for home route and showing blogs cards by 4.
     app.get('/home-category-sections', async (req, res) => {
@@ -227,6 +247,13 @@ async function run() {
       res.send(result);
     });
 
+    // get operation for popular blogs sections
+    app.get('/most-popular-for-details-page', async (req, res) => {
+      const cursor = instantRBlogs.find().sort({ blog_viewCount: -1 }).limit(8);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
     // get operation for search route
     // Search Route
     app.get('/search', async (req, res) => {
@@ -255,6 +282,32 @@ async function run() {
       }
     });
 
+    // get operations for all video route
+    app.get('/videos', async (req, res) => {
+      const page = parseInt(req.query.page) || 0;
+      const size = parseInt(req.query.size) || 35;
+
+      const totalCount = await instantRVideos.countDocuments(); // Total number of videos
+      const cursor = instantRVideos.find().skip(page * size).limit(size);
+      const result = await cursor.toArray();
+
+      res.send({ videos: result, totalCount });
+    });
+
+
+    // get operations for home video section
+    app.get('/video-section', async (req, res) => {
+      const cursor = instantRVideos.find().limit(10);
+      const result = await cursor.toArray();
+      res.send(result);
+    })
+
+    // get all data
+    app.get('/allData', async (req, res) => {
+      const cursor = instantRBlogs.find();
+      const result = await cursor.toArray();
+      res.send(result)
+    })
 
 
 
@@ -264,7 +317,7 @@ async function run() {
     // PUT OPERATION
     app.patch('/:id', async (req, res) => {
       const blogId = req.params.id; // Get blog ID from route
-      
+
 
       try {
         const blog = await instantRBlogs.findOneAndUpdate(
