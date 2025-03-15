@@ -479,6 +479,16 @@ async function run() {
       res.send(result);
     });
 
+    // get operation for user data
+    app.get("/userData", async (req, res) => {
+      const email = req.query.email;
+
+      const filter = { email: email };
+
+      const result = await instantRUsers.findOne(filter);
+      res.send(result);
+    });
+
     // get operation for others posts
     app.get("/others-posted-videos", async (req, res) => {
       const email = req.query.email; // Requested email
