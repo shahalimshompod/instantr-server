@@ -598,8 +598,8 @@ async function run() {
       }
     });
 
-    // put operation for update blogs
-    app.put("/update-blogs/:id", async (req, res) => {
+    // put operation for update blogs for admin
+    app.put("/update-blogs-admin/:id", async (req, res) => {
       const id = req.params.id;
       const updatedBlog = req.body;
 
@@ -614,6 +614,26 @@ async function run() {
       } catch (error) {
         console.error("Error updating blogs", error);
       }
+    });
+
+    // put operation for update blogs for others
+    app.post("/update-blogs-others", async (req, res) => {
+      // const id = req.params.id;
+      const updatedBlog = req.body;
+
+      console.log(updatedBlog);
+
+      // const filter = { _id: new ObjectId(id) };
+      // const updatedDoc = {
+      //   $set: updatedBlog,
+      // };
+
+      // try {
+      //   const result = await pendingApproval.updateOne(filter, updatedDoc);
+      //   res.send(result);
+      // } catch (error) {
+      //   console.error("Error updating blogs", error);
+      // }
     });
 
     // put operation for update blogs
@@ -660,6 +680,26 @@ async function run() {
         res.status(500).json({ message: "Something went wrong", error });
       }
     });
+
+    // patch for update profile info
+    app.patch('/add-userData/:id', async(req, res) => {
+      const id = req.params.id;
+      const ImageAndName = req.body;
+      console.log(ImageAndName);
+      if(!ImageAndName){
+        return res.status(404).json({message: "Not Found"})
+      }
+
+      const result = await instantRUsers.findOneAndUpdate(
+        {_id: new ObjectId(id)},
+        {$set: ImageAndName},
+        {new: false, upsert: false}
+      )
+
+      res.status(200).json({
+        message: "Profile Updated Successfully",
+      });
+    })
 
     // DELETE OPERATIONS
     // Firebase Admin SDK
