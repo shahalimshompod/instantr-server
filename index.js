@@ -37,6 +37,10 @@ async function run() {
       .db("instantr07")
       .collection("approval-history");
 
+    const adminApprovalHistory = client
+      .db("instantr07")
+      .collection("approval-history-for-admin");
+
     // GET OPERATIONS
     // get operation for first section card
     app.get("/home", async (req, res) => {
@@ -372,6 +376,8 @@ async function run() {
       const limit = parseInt(req.query.limit) || 5; // Blogs per page
       const skip = (page - 1) * limit;
 
+      console.log(email);
+
       const filter = { userEmail: email };
       try {
         const totalBlogs = await instantRBlogs.countDocuments(filter); // Total blogs count
@@ -489,6 +495,40 @@ async function run() {
       res.send(result);
     });
 
+    // get operation for history data
+    app.get("/get-approval-history-data", async (req, res) => {
+      const email = req.query.email;
+
+      if (!email) {
+        return res.status(404).json({ message: "Not Found" });
+      }
+
+      const filter = { userEmail: email };
+
+      const result = await approvalHistory
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .toArray();
+      res.send(result);
+    });
+
+    // get operation for history data for admin
+    app.get("/get-approval-history-data-for-admin", async (req, res) => {
+      const email = req.query.email;
+
+      if (!email) {
+        return res.status(404).json({ message: "Not Found" });
+      }
+
+      const filter = { approverMail: email };
+
+      const result = await adminApprovalHistory
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .toArray();
+      res.send(result);
+    });
+
     // get operation for others posts
     app.get("/others-posted-videos", async (req, res) => {
       const email = req.query.email; // Requested email
@@ -547,10 +587,35 @@ async function run() {
       const newBlogWithCurrentTime = {
         ...newBlog,
         createdAt: new Date(),
-        requestType: "Post",
       };
 
       const result = await pendingApproval.insertOne(newBlogWithCurrentTime);
+      res.send(result);
+    });
+
+    // post operation for add blogs from admin panel
+    app.post("/add-blogs-others-to-approval-history", async (req, res) => {
+      const newBlog = req.body;
+      const newBlogWithCurrentTime = {
+        ...newBlog,
+        createdAt: new Date(),
+      };
+
+      const result = await approvalHistory.insertOne(newBlogWithCurrentTime);
+      res.send(result);
+    });
+
+    // post operation for add blogs in admin history
+    app.post("/add-blogs-to-admin-history", async (req, res) => {
+      const newBlog = req.body;
+      const newBlogWithCurrentTime = {
+        ...newBlog,
+        createdAt: new Date(),
+      };
+
+      const result = await adminApprovalHistory.insertOne(
+        newBlogWithCurrentTime
+      );
       res.send(result);
     });
 
@@ -617,23 +682,165 @@ async function run() {
     });
 
     // put operation for update blogs for others
-    app.post("/update-blogs-others", async (req, res) => {
-      // const id = req.params.id;
-      const updatedBlog = req.body;
+    // app.post("/update-blogs-others", async (req, res) => {
+    //   // const id = req.params.id;
+    //   const updatedBlog = req.body;
 
-      console.log(updatedBlog);
+    //   console.log(updatedBlog);
 
-      // const filter = { _id: new ObjectId(id) };
-      // const updatedDoc = {
-      //   $set: updatedBlog,
-      // };
+    //   // const filter = { _id: new ObjectId(id) };
+    //   // const updatedDoc = {
+    //   //   $set: updatedBlog,
+    //   // };
 
-      // try {
-      //   const result = await pendingApproval.updateOne(filter, updatedDoc);
-      //   res.send(result);
-      // } catch (error) {
-      //   console.error("Error updating blogs", error);
-      // }
+    //   // try {
+    //   //   const result = await pendingApproval.updateOne(filter, updatedDoc);
+    //   //   res.send(result);
+    //   // } catch (error) {
+    //   //   console.error("Error updating blogs", error);
+    //   // }
+    // });
+
+    // post operation for posting blogs after success approval
+    app.post("/approve-blog-post", async (req, res) => {
+      const approvedData = req.body;
+
+      console.log(approvedData);
+
+      if (!approvedData) {
+        return res.status(404).json({ message: "Not Found data" });
+      }
+
+      const finalApprovedData = {
+        ...approvedData,
+        createdAt: new Date(),
+      };
+
+      const result = await instantRBlogs.insertOne(finalApprovedData);
+
+      res.send(result);
+    });
+
+    // patch operation for changing the blogs blogs after success approval
+    app.patch("/approval-history/:id", async (req, res) => {
+      const approvedHistoryData = req.body;
+      const id = req.params.id;
+
+      if (!approvedHistoryData || !id) {
+        return res.status(404).json({ message: "Not Found" });
+      }
+
+      const finalApprovedData = {
+        ...approvedHistoryData,
+        approvedAt: new Date(),
+      };
+
+      const result = await approvalHistory.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $set: finalApprovedData },
+        { new: false, upsert: false }
+      );
+
+      res.send({ message: "Approved Successfully" });
+    });
+
+    // patch operation for changing the blogs blogs after success approval
+    app.patch("/admin-approval-history/:id", async (req, res) => {
+      const approvedHistoryData = req.body;
+      const id = req.params.id;
+
+      if (!approvedHistoryData || !id) {
+        return res.status(404).json({ message: "Not Found" });
+      }
+
+      const finalApprovedData = {
+        ...approvedHistoryData,
+        approvedAt: new Date(),
+      };
+
+      const result = await adminApprovalHistory.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $set: finalApprovedData },
+        { new: false, upsert: false }
+      );
+
+      res.send({ message: "Approved Successfully" });
+    });
+
+    // patch for reject with feedback
+    app.patch("/reject-with-feedback/:id", async (req, res) => {
+      const id = req.params.id;
+      const rejectionData = req.body;
+      if (!id) {
+        return res.status(404).json({ message: "Not Found" });
+      }
+
+      console.log(new ObjectId(id));
+
+      console.log("id ache", id);
+
+      if (!rejectionData) {
+        return res.status(404).json({ message: "Not Found" });
+      }
+
+      console.log("data ache", rejectionData);
+
+      const finalRejectionData = {
+        ...rejectionData,
+        approvedAt: new Date(),
+      };
+
+      console.log("final data ache", finalRejectionData);
+
+      const result = await approvalHistory.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $set: finalRejectionData },
+        { new: false, upsert: false }
+      );
+
+      console.log("done");
+
+      console.log(result);
+
+      res.send({ message: "Rejected Successfully" });
+    });
+
+    // patch for reject with feedback
+    app.patch("/admin-reject-history/:id", async (req, res) => {
+      const id = req.params.id;
+      const rejectionData = req.body;
+      if (!id) {
+        return res.status(404).json({ message: "Not Found" });
+      }
+
+      console.log(new ObjectId(id));
+
+      console.log("id ache", id);
+
+      if (!rejectionData) {
+        return res.status(404).json({ message: "Not Found" });
+      }
+
+      console.log("data ache", rejectionData);
+
+      const finalRejectionData = {
+        ...rejectionData,
+        approvedAt: new Date(),
+      };
+
+      console.log("final data ache", finalRejectionData);
+
+      const result = await adminApprovalHistory.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $set: finalRejectionData },
+        { new: false, upsert: false }
+      );
+
+      console.log("done");
+
+      console.log(result);
+
+      res.send({ message: "Rejected Successfully" });
     });
 
     // put operation for update blogs
@@ -682,24 +889,24 @@ async function run() {
     });
 
     // patch for update profile info
-    app.patch('/add-userData/:id', async(req, res) => {
+    app.patch("/add-userData/:id", async (req, res) => {
       const id = req.params.id;
       const ImageAndName = req.body;
       console.log(ImageAndName);
-      if(!ImageAndName){
-        return res.status(404).json({message: "Not Found"})
+      if (!ImageAndName) {
+        return res.status(404).json({ message: "Not Found" });
       }
 
       const result = await instantRUsers.findOneAndUpdate(
-        {_id: new ObjectId(id)},
-        {$set: ImageAndName},
-        {new: false, upsert: false}
-      )
+        { _id: new ObjectId(id) },
+        { $set: ImageAndName },
+        { new: false, upsert: false }
+      );
 
       res.status(200).json({
         message: "Profile Updated Successfully",
       });
-    })
+    });
 
     // DELETE OPERATIONS
     // Firebase Admin SDK
@@ -741,11 +948,49 @@ async function run() {
       res.send(result);
     });
 
+    // delete operation for clear approval request
+    app.delete("/delete-after-approval/:id", async (req, res) => {
+      const id = req.params.id;
+      console.log(id);
+
+      if (!id) {
+        return res.status(404).json({ message: "Request Not Found" });
+      }
+
+      const filter = { _id: new ObjectId(id) };
+
+      const result = await pendingApproval.deleteOne(filter);
+
+      res.send(result);
+    });
+
     // delete operation for delete videos
     app.delete("/delete-video/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const result = await instantRVideos.deleteOne(filter);
+      res.send(result);
+    });
+
+    // delete operation for delete history card data
+    app.delete("/delete-others-history-card/:id", async (req, res) => {
+      const id = req.params.id;
+      if (!id) {
+        return res.status(404).json({ message: "Not Found" });
+      }
+      const filter = { _id: new ObjectId(id) };
+      const result = await approvalHistory.deleteOne(filter);
+      res.send(result);
+    });
+
+    // delete operation for delete history card data
+    app.delete("/delete-admin-history-card/:id", async (req, res) => {
+      const id = req.params.id;
+      if (!id) {
+        return res.status(404).json({ message: "Not Found" });
+      }
+      const filter = { _id: new ObjectId(id) };
+      const result = await adminApprovalHistory.deleteOne(filter);
       res.send(result);
     });
   } finally {
