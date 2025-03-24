@@ -382,8 +382,6 @@ async function run() {
       const limit = parseInt(req.query.limit) || 5; // Blogs per page
       const skip = (page - 1) * limit;
 
-      console.log(email);
-
       const filter = { userEmail: email };
       try {
         const totalBlogs = await instantRBlogs.countDocuments(filter); // Total blogs count
@@ -687,31 +685,9 @@ async function run() {
       }
     });
 
-    // put operation for update blogs for others
-    // app.post("/update-blogs-others", async (req, res) => {
-    //   // const id = req.params.id;
-    //   const updatedBlog = req.body;
-
-    //   console.log(updatedBlog);
-
-    //   // const filter = { _id: new ObjectId(id) };
-    //   // const updatedDoc = {
-    //   //   $set: updatedBlog,
-    //   // };
-
-    //   // try {
-    //   //   const result = await pendingApproval.updateOne(filter, updatedDoc);
-    //   //   res.send(result);
-    //   // } catch (error) {
-    //   //   console.error("Error updating blogs", error);
-    //   // }
-    // });
-
     // post operation for posting blogs after success approval
     app.post("/approve-blog-post", async (req, res) => {
       const approvedData = req.body;
-
-      console.log(approvedData);
 
       if (!approvedData) {
         return res.status(404).json({ message: "Not Found data" });
@@ -781,32 +757,20 @@ async function run() {
         return res.status(404).json({ message: "Not Found" });
       }
 
-      console.log(new ObjectId(id));
-
-      console.log("id ache", id);
-
       if (!rejectionData) {
         return res.status(404).json({ message: "Not Found" });
       }
-
-      console.log("data ache", rejectionData);
 
       const finalRejectionData = {
         ...rejectionData,
         approvedAt: new Date(),
       };
 
-      console.log("final data ache", finalRejectionData);
-
       const result = await approvalHistory.findOneAndUpdate(
         { _id: new ObjectId(id) },
         { $set: finalRejectionData },
         { new: false, upsert: false }
       );
-
-      console.log("done");
-
-      console.log(result);
 
       res.send({ message: "Rejected Successfully" });
     });
@@ -819,32 +783,20 @@ async function run() {
         return res.status(404).json({ message: "Not Found" });
       }
 
-      console.log(new ObjectId(id));
-
-      console.log("id ache", id);
-
       if (!rejectionData) {
         return res.status(404).json({ message: "Not Found" });
       }
-
-      console.log("data ache", rejectionData);
 
       const finalRejectionData = {
         ...rejectionData,
         approvedAt: new Date(),
       };
 
-      console.log("final data ache", finalRejectionData);
-
       const result = await adminApprovalHistory.findOneAndUpdate(
         { _id: new ObjectId(id) },
         { $set: finalRejectionData },
         { new: false, upsert: false }
       );
-
-      console.log("done");
-
-      console.log(result);
 
       res.send({ message: "Rejected Successfully" });
     });
@@ -873,6 +825,10 @@ async function run() {
     app.patch("/:id", async (req, res) => {
       const blogId = req.params.id; // Get blog ID from route
 
+      if (!blogId) {
+        return res.status(404).json({ message: "Blog not found" });
+      }
+
       try {
         const blog = await instantRBlogs.findOneAndUpdate(
           { _id: new ObjectId(blogId) }, // Match the blog by ID
@@ -898,7 +854,6 @@ async function run() {
     app.patch("/add-userData/:id", async (req, res) => {
       const id = req.params.id;
       const ImageAndName = req.body;
-      console.log(ImageAndName);
       if (!ImageAndName) {
         return res.status(404).json({ message: "Not Found" });
       }
@@ -957,7 +912,6 @@ async function run() {
     // delete operation for clear approval request
     app.delete("/delete-after-approval/:id", async (req, res) => {
       const id = req.params.id;
-      console.log(id);
 
       if (!id) {
         return res.status(404).json({ message: "Request Not Found" });
